@@ -21,47 +21,6 @@
   }[overall];
 %>
 
-<div class="status-overall <%= overallClass %>">
-  <div class="d-flex align-items-center gap-3">
-    <span class="overall-dot"></span>
-    <div>
-      <div class="fw-semibold fs-3"><%= overallLabel %></div>
-      <% if (overall === 'partial' || overall === 'major') { %>
-        <div class="small opacity-75"><%= downCount %> of <%= totalMonitors %> monitors are reporting issues.</div>
-      <% } else if (overall === 'operational') { %>
-        <div class="small opacity-75">All <%= totalMonitors %> monitors are reporting healthy.</div>
-      <% } %>
-    </div>
-  </div>
-</div>
-
-<% if (incidents && incidents.length) { %>
-  <section class="status-incidents mt-4">
-    <h2 class="h4 mb-3">Recent incidents</h2>
-    <ul class="list-unstyled m-0">
-      <% incidents.slice(0, 5).forEach(function(inc) { %>
-        <li class="incident-row">
-          <div class="d-flex align-items-baseline gap-2 flex-wrap">
-            <strong><%= inc.site_display_name || inc.site_name %></strong>
-            <% if (!inc.ended_at) { %>
-              <span class="badge bg-red text-white">Ongoing</span>
-            <% } else { %>
-              <span class="badge bg-green text-white">Resolved</span>
-            <% } %>
-            <span class="small text-secondary">
-              <span data-relative-time="<%= inc.started_at %>"><%= inc.started_at %></span>
-              <% if (inc.ended_at) { %> &middot; <%= inc.duration_human %><% } %>
-            </span>
-          </div>
-          <% if (inc.last_error) { %>
-            <div class="small text-secondary mt-1"><code><%= inc.last_error %></code></div>
-          <% } %>
-        </li>
-      <% }) %>
-    </ul>
-  </section>
-<% } %>
-
 <% groups.forEach(function(group) { %>
   <% if (!group.monitors.length) return; %>
   <section class="status-group mt-4">
@@ -92,9 +51,13 @@
                 : d.uptime_pct >= 99 ? 'b-warn-light'
                 : d.uptime_pct >= 95 ? 'b-warn'
                 : 'b-down';
+              var speedPart = '';
+              if (d.avg_download_mbps != null || d.avg_upload_mbps != null) {
+                speedPart = ' · ↓ ' + (d.avg_download_mbps ?? '--') + ' / ↑ ' + (d.avg_upload_mbps ?? '--') + ' Mbps';
+              }
               const label = d.total === 0
                 ? d.date + ': no data'
-                : d.date + ': ' + d.uptime_pct.toFixed(2) + '% (' + d.up + '/' + (d.up + d.down) + ')';
+                : d.date + ': ' + d.uptime_pct.toFixed(2) + '% (' + d.up + '/' + (d.up + d.down) + ')' + speedPart;
             %><span class="bar <%= cls %>" title="<%= label %>"></span><% }) %>
           </div>
 
@@ -103,6 +66,9 @@
               Checked <span data-relative-time="<%= m.last_check.checked_at %>"><%= m.last_check.checked_at %></span>
               <% if (m.last_check.response_time_ms != null && m.current_state === 'up') { %>
                 &middot; <%= m.last_check.response_time_ms %> ms
+              <% } %>
+              <% if (m.last_check.download_mbps != null || m.last_check.upload_mbps != null) { %>
+                &middot; ↓ <%= m.last_check.download_mbps ?? '--' %> / ↑ <%= m.last_check.upload_mbps ?? '--' %> Mbps
               <% } %>
               <% if (m.current_state === 'down' && m.last_check.error_message) { %>
                 &middot; <span class="text-red"><%= m.last_check.error_message %></span>
@@ -114,9 +80,3 @@
     </div>
   </section>
 <% }) %>
-
-<% if (!totalMonitors) { %>
-  <div class="empty mt-4 text-center text-secondary">
-    <p class="lead">No monitors have been added yet.</p>
-  </div>
-<% } %>

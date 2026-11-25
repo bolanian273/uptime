@@ -72,9 +72,17 @@ async function loadSite(id) {
 
 async function recordCheck(site, result) {
   await db.query(
-    `INSERT INTO checks (site_id, is_up, status_code, response_time_ms, error_message)
-     VALUES (?, ?, ?, ?, ?)`,
-    [site.id, result.isUp, result.statusCode, result.responseTimeMs, result.errorMessage]
+    `INSERT INTO checks (site_id, is_up, status_code, response_time_ms, error_message, download_mbps, upload_mbps)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
+      site.id,
+      result.isUp,
+      result.statusCode,
+      result.responseTimeMs,
+      result.errorMessage,
+      result.downloadMbps ?? null,
+      result.uploadMbps ?? null,
+    ]
   );
 }
 

@@ -145,6 +145,30 @@
         if (lastRtEl && s.last_check && s.last_check.response_time_ms != null) {
           setRt(lastRtEl, s.last_check.response_time_ms);
         }
+
+       const speedEl = card.querySelector('[data-role="speedtest"]');
+if (speedEl && s.last_check && (s.last_check.download_mbps != null || s.last_check.upload_mbps != null)) {
+const dl = s.last_check.download_mbps != null ? s.last_check.download_mbps : '--';
+const ul = s.last_check.upload_mbps != null ? s.last_check.upload_mbps : '--';
+speedEl.innerHTML = '';
+
+const dlLine = document.createElement('div');
+dlLine.appendChild(document.createTextNode('↓ ' + dl + ' '));
+const u1 = document.createElement('span');
+u1.className = 'stat-unit';
+u1.textContent = 'Mbps';
+dlLine.appendChild(u1);
+
+const ulLine = document.createElement('div');
+ulLine.appendChild(document.createTextNode('↑ ' + ul + ' '));
+const u2 = document.createElement('span');
+u2.className = 'stat-unit';
+u2.textContent = 'Mbps';
+ulLine.appendChild(u2);
+
+speedEl.appendChild(dlLine);
+speedEl.appendChild(ulLine);
+}
       });
     } catch (e) {}
   }

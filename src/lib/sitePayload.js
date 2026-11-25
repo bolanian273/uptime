@@ -15,7 +15,7 @@ const db = require('../db');
 const channels = require('./channels');
 const tagsLib = require('./tags');
 
-const VALID_MONITOR_TYPES = ['active', 'heartbeat', 'cert', 'tcp', 'ping', 'dns', 'domain'];
+const VALID_MONITOR_TYPES = ['active', 'heartbeat', 'cert', 'tcp', 'ping', 'dns', 'domain', 'speedtest'];
 const VALID_CHECK_TYPES = ['status', 'string', 'regex', 'json'];
 const VALID_METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'];
 const VALID_DNS_TYPES = ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS', 'SRV', 'CAA', 'SOA', 'PTR'];
@@ -96,6 +96,17 @@ function buildPayload(body) {
   const rawMethod = String(body.method || 'GET').toUpperCase();
   const method = VALID_METHODS.includes(rawMethod) ? rawMethod : 'GET';
   const check_type = VALID_CHECK_TYPES.includes(body.check_type) ? body.check_type : 'status';
+  const speedtest_server_id = monitor_type === 'speedtest'
+    ? (parseInt(body.speedtest_server_id, 10) > 0 ? parseInt(body.speedtest_server_id, 10) : null)
+    : null;
+  const minDownRaw = parseFloat(body.min_download_mbps);
+  const min_download_mbps = monitor_type === 'speedtest' && Number.isFinite(minDownRaw) && minDownRaw > 0
+    ? minDownRaw
+    : 0;
+  const minUpRaw = parseFloat(body.min_upload_mbps);
+  const min_upload_mbps = monitor_type === 'speedtest' && Number.isFinite(minUpRaw) && minUpRaw > 0
+    ? minUpRaw
+    : 0;
 
   let enforced_interval;
   if (monitor_type === 'domain') {

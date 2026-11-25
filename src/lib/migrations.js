@@ -278,6 +278,13 @@ async function run() {
   await addColumn('sites', 'dns_record_type', 'TEXT NULL',    'VARCHAR(16) NULL');
   await addColumn('sites', 'dns_resolver',    'TEXT NULL',    'VARCHAR(255) NULL');
   await addColumn('sites', 'dns_expected',    'TEXT NULL',    'TEXT NULL');
+ // Speedtest monitor settings & per-check measurements
+  await addColumn('sites', 'speedtest_server_id', 'INTEGER NULL', 'INT NULL');
+  await addColumn('sites', 'min_download_mbps',   'REAL NOT NULL DEFAULT 0', 'DOUBLE NOT NULL DEFAULT 0');
+  await addColumn('sites', 'min_upload_mbps',     'REAL NOT NULL DEFAULT 0', 'DOUBLE NOT NULL DEFAULT 0');
+  await addColumn('checks', 'download_mbps',      'REAL NULL', 'DOUBLE NULL');
+  await addColumn('checks', 'upload_mbps',        'REAL NULL', 'DOUBLE NULL');
+
 
   // Phase 5 — maintenance windows.
   await ensureTable(

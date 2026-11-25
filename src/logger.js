@@ -53,4 +53,59 @@ logger.info(
   'logger initialized'
 );
 
+function formatLogEntry(rawLine) {
+  const line = String(rawLine || '').trim();
+  if (!line) return null;
+  try {
+    const obj = JSON.parse(line);
+    const levelMap = { 10: 'TRACE', 20: 'DEBUG', 30: 'INFO', 40: 'WARN', 50: 'ERROR', 60: 'FATAL' };
+    const lvl = levelMap[obj.level] || String(obj.level || 'INFO');
+    const ts = obj.time ? new Date(obj.time).toISOString().replace('T', ' ').replace('Z', '') : '';
+    const msg = obj.msg || obj.message || '';
+    const extra = { ...obj };
+    delete extra.level;
+    delete extra.time;
+    delete extra.msg;
+    delete extra.message;
+    delete extra.pid;
+    delete extra.hostname;
+    delete extra.app;
+    const metaStr = Object.keys(extra).length ? ' ' + JSON.stringify(extra) : '';
+    return `${ts ? `[${ts}] ` : ''}[${lvl}] ${msg}${metaStr}`.trim();
+  } catch {
+    return line;
+  }
+}
+
+function getRecentLogs(limit = 40) {
+  try {
+    const maxLines = Math.max(1, Math.min(200, Number(limit) || 40));
+    if (!fs.existsSync(config.paths.logs)) return [];
+
+    const files = fs.readdirSync(config.paths.logs)
+      .filter((f) => /^app\.log/i.test(f))
+      .map((f) => {
+        const full = path.join(config.paths.logs, f);
+        try {
+          const stat = fs.statSync(full);
+          return stat.isFile() ? { full, mtimeMs: stat.mtimeMs } : null;
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.mtimeMs - a.mtimeMs);
+
+    if (!files.length) return [];
+
+    const raw = fs.readFileSync(files[0].full, 'utf8');
+    const lines = raw.split(/\r?\n/).filter(Boolean).slice(-maxLines);
+    return lines.map(formatLogEntry).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+logger.getRecentLogs = getRecentLogs;
+
 module.exports = logger;

@@ -31,11 +31,13 @@
         <%= total %> total<% if (hasFilters) { %> - filtered<% } %> - status updates every 5 seconds
       </div>
     </div>
+    <% if (typeof canCreate === 'undefined' || canCreate) { %>
     <div class="col-auto">
       <a href="/sites/new" class="btn btn-primary d-none d-sm-inline-flex">
         <i class="ti ti-plus me-1"></i> Add monitor
       </a>
     </div>
+    <% } %>
   </div>
 </div>
 
@@ -240,6 +242,8 @@
                 <i class="ti ti-server-2"></i><span class="site-meta-text">DNS <%= s.dns_record_type || 'A' %> - <%= s.dns_query %></span>
               <% } else if (s.monitor_type === 'domain') { %>
                 <i class="ti ti-hourglass"></i><span class="site-meta-text">Domain - <%= s.whois_domain || '?' %></span>
+                <% } else if (s.monitor_type === 'speedtest') { %>
+                <i class="ti ti-gauge"></i><span class="site-meta-text">Speedtest<% if (s.speedtest_server_id) { %> #<%= s.speedtest_server_id %><% } %></span>
               <% } else { %>
                 <i class="ti ti-world"></i><span class="site-meta-text"><%= s.url %></span>
               <% } %>
@@ -293,8 +297,21 @@
                   <%= uptimePct == null ? '--' : uptimePct.toFixed(1) + '%' %>
                 </div>
               </div>
+             <% if (s.monitor_type === 'speedtest') { %>
+  <div class="stat">
+    <div class="stat-label">Speed</div>
+    <div class="stat-value small fw-semibold text-nowrap" data-role="speedtest">
+      <% if (s.last_check && (s.last_check.download_mbps != null || s.last_check.upload_mbps != null)) { %>
+        <div>↓ <%= s.last_check.download_mbps ?? '--' %> <span class="stat-unit">Mbps</span></div>
+        <div>↑ <%= s.last_check.upload_mbps ?? '--' %> <span class="stat-unit">Mbps</span></div>
+      <% } else { %>
+        <span class="text-secondary">--</span>
+      <% } %>
+    </div>
+  </div>
+<% } %>
               <div class="stat">
-                <div class="stat-label">Last response</div>
+                <div class="stat-label"><%= s.monitor_type === 'speedtest' ? 'Ping' : 'Last response' %></div>
                 <div class="stat-value" data-role="last-rt">
                   <% if (s.last_check && s.last_check.response_time_ms != null) { %>
                     <%= s.last_check.response_time_ms %><span class="stat-unit">ms</span>

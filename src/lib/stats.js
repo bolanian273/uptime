@@ -73,7 +73,7 @@ async function responseTimeStats(siteId, hours) {
 
 async function recentChecks(siteId, limit = 50) {
   return db.query(
-    `SELECT id, checked_at, is_up, status_code, response_time_ms, error_message
+    `SELECT id, checked_at, is_up, status_code, response_time_ms, error_message, download_mbps, upload_mbps
      FROM checks WHERE site_id = ? ORDER BY checked_at DESC LIMIT ?`,
     [siteId, limit]
   );
@@ -128,7 +128,7 @@ async function totalDowntimeSeconds(siteId, hours) {
 
 async function lastCheck(siteId) {
   const rows = await db.query(
-    `SELECT checked_at, is_up, status_code, response_time_ms, error_message
+    `SELECT checked_at, is_up, status_code, response_time_ms, error_message, download_mbps, upload_mbps
      FROM checks WHERE site_id = ? ORDER BY checked_at DESC LIMIT 1`,
     [siteId]
   );
@@ -150,12 +150,20 @@ function aggRow(r) {
   const up = Number(r.up_count || 0);
   const down = Number(r.down_count || 0);
   const total = up + down;
+  const avgDl = r.avg_dl != null && Number.isFinite(Number(r.avg_dl))
+    ? Number(Number(r.avg_dl).toFixed(2))
+    : null;
+  const avgUl = r.avg_ul != null && Number.isFinite(Number(r.avg_ul))
+    ? Number(Number(r.avg_ul).toFixed(2))
+    : null;
   return {
     total,
     up,
     down,
     inconclusive: Number(r.inconclusive_count || 0),
     uptime_pct: total ? (up / total) * 100 : null,
+    avg_download_mbps: avgDl,
+    avg_upload_mbps: avgUl,
   };
 }
 
@@ -171,8 +179,6 @@ async function dailyUptime(siteId, days = 90) {
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
   const todayIso = today.toISOString().slice(0, 10);
-  // MySQL DATETIME comparisons need a driver-friendly literal; SQLite stores
-  // ISO strings so the same boundary works lexicographically for both.
   const todayStart = db.dialect === 'sqlite'
     ? `${todayIso}T00:00:00.000Z`
     : `${todayIso} 00:00:00`;
@@ -180,12 +186,14 @@ async function dailyUptime(siteId, days = 90) {
   const cacheKey = `${todayIso}:${days}`;
   let cached = dailyCache.get(Number(siteId));
   if (!cached || cached.key !== cacheKey) {
-    // (Re)build the immutable part: all completed days in the window.
+    // 1) Completed days query
     const rows = await db.query(
       `SELECT ${dayExprByDialect} AS day,
               SUM(CASE WHEN is_up = 1 THEN 1 ELSE 0 END) AS up_count,
               SUM(CASE WHEN is_up = 0 THEN 1 ELSE 0 END) AS down_count,
-              SUM(CASE WHEN is_up IS NULL THEN 1 ELSE 0 END) AS inconclusive_count
+              SUM(CASE WHEN is_up IS NULL THEN 1 ELSE 0 END) AS inconclusive_count,
+              AVG(download_mbps) AS avg_dl,
+              AVG(upload_mbps) AS avg_ul
        FROM checks
        WHERE site_id = ? AND checked_at > ${db.intervalAgoSql()} AND checked_at < ?
        GROUP BY day
@@ -198,11 +206,13 @@ async function dailyUptime(siteId, days = 90) {
     dailyCache.set(Number(siteId), cached);
   }
 
-  // Today's bucket is always queried live — it's a single small index range.
+  // 2) Today's bucket query (todayRows)
   const todayRows = await db.query(
     `SELECT SUM(CASE WHEN is_up = 1 THEN 1 ELSE 0 END) AS up_count,
             SUM(CASE WHEN is_up = 0 THEN 1 ELSE 0 END) AS down_count,
-            SUM(CASE WHEN is_up IS NULL THEN 1 ELSE 0 END) AS inconclusive_count
+            SUM(CASE WHEN is_up IS NULL THEN 1 ELSE 0 END) AS inconclusive_count,
+            AVG(download_mbps) AS avg_dl,
+            AVG(upload_mbps) AS avg_ul
      FROM checks
      WHERE site_id = ? AND checked_at >= ?`,
     [siteId, todayStart]
@@ -217,7 +227,18 @@ async function dailyUptime(siteId, days = 90) {
     if (iso === todayIso) {
       out.push({ date: iso, ...todayAgg });
     } else {
-      out.push({ date: iso, ...(cached.byDay.get(iso) || { total: 0, up: 0, down: 0, inconclusive: 0, uptime_pct: null }) });
+      out.push({
+        date: iso,
+        ...(cached.byDay.get(iso) || {
+          total: 0,
+          up: 0,
+          down: 0,
+          inconclusive: 0,
+          uptime_pct: null,
+          avg_download_mbps: null,
+          avg_upload_mbps: null,
+        }),
+      });
     }
   }
   return out;

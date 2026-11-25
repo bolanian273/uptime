@@ -29,6 +29,7 @@
           <option value="tcp"       <%= site.monitor_type === 'tcp'       ? 'selected' : '' %>>TCP - open a socket to host:port</option>
           <option value="ping"      <%= site.monitor_type === 'ping'      ? 'selected' : '' %>>Ping - ICMP echo</option>
           <option value="dns"       <%= site.monitor_type === 'dns'       ? 'selected' : '' %>>DNS - resolve and match record</option>
+          <option value="speedtest" <%= site.monitor_type === 'speedtest' ? 'selected' : '' %>>Speedtest - Ookla download, upload &amp; ping</option>
         </select>
       </div>
     </div>
@@ -521,6 +522,49 @@
       sync();
     })();
     </script>
+  </div>
+
+  <div class="card-body border-top" data-section="speedtest" <%= site.monitor_type !== 'speedtest' ? 'hidden' : '' %>>
+    <h3 class="card-title form-section-title"><i class="ti ti-gauge"></i> Ookla speedtest monitor</h3>
+    <p class="card-subtitle text-secondary mb-3">
+      Runs the official Ookla Speedtest CLI (<code>speedtest</code> / <code>speedtest.exe</code>) and records ping latency, download Mbps, and upload Mbps.
+    </p>
+    <div class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label">Ookla server ID (optional)</label>
+        <input type="number" name="speedtest_server_id" class="form-control" min="1"
+               value="<%= site.speedtest_server_id || '' %>" placeholder="Auto-select nearest">
+        <div class="form-hint">Leave blank to let Ookla pick the best server automatically.</div>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Min download speed (Mbps, optional)</label>
+        <input type="number" step="0.1" min="0" name="min_download_mbps" class="form-control"
+               value="<%= site.min_download_mbps || '' %>" placeholder="e.g. 100">
+        <div class="form-hint">Mark DOWN if download drops below this threshold (0 = no minimum).</div>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Min upload speed (Mbps, optional)</label>
+        <input type="number" step="0.1" min="0" name="min_upload_mbps" class="form-control"
+               value="<%= site.min_upload_mbps || '' %>" placeholder="e.g. 50">
+        <div class="form-hint">Mark DOWN if upload drops below this threshold (0 = no minimum).</div>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Interval (seconds)</label>
+        <input type="number" name="interval_seconds_speedtest" class="form-control" min="10"
+               value="<%= site.monitor_type === 'speedtest' ? site.interval_seconds : 3600 %>" data-mirror="interval_seconds">
+        <div class="form-hint">Speedtests use bandwidth/data — once an hour (3600s) is a good default.</div>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Timeout (ms)</label>
+        <input type="number" name="timeout_ms_speedtest" class="form-control" min="15000"
+               value="<%= site.monitor_type === 'speedtest' ? site.timeout_ms : 60000 %>" data-mirror="timeout_ms">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Failure threshold</label>
+        <input type="number" name="failure_threshold_speedtest" class="form-control" min="1"
+               value="<%= site.failure_threshold || 1 %>" data-mirror="failure_threshold">
+      </div>
+    </div>
   </div>
 
   <div class="card-body border-top">

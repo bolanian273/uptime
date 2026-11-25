@@ -411,11 +411,11 @@ curl -fsS --data-binary @/tmp/job.log <%= publicBaseUrl %>/ping/<%= site.heartbe
       <div class="table-responsive">
         <table class="table table-vcenter table-sm card-table">
           <thead><tr>
-            <th>When</th><th>State</th><th>HTTP</th><th>RT</th><th>Note</th>
+            <th>When</th><th>State</th><th>HTTP</th><th>RT</th><th>Download</th><th>Upload</th><th>Note</th>
           </tr></thead>
           <tbody>
             <% if (recent.length === 0) { %>
-              <tr><td colspan="5" class="text-center text-secondary py-3">No checks yet</td></tr>
+              <tr><td colspan="7" class="text-center text-secondary py-3">No checks yet</td></tr>
             <% } %>
             <% recent.forEach(function(c) { %>
               <tr>
@@ -431,6 +431,8 @@ curl -fsS --data-binary @/tmp/job.log <%= publicBaseUrl %>/ping/<%= site.heartbe
                 </td>
                 <td class="small"><%= c.status_code ?? '-' %></td>
                 <td class="small"><%= c.response_time_ms != null ? c.response_time_ms + 'ms' : '-' %></td>
+                <td class="small text-nowrap"><%= c.download_mbps != null ? c.download_mbps + ' Mbps' : '-' %></td>
+                <td class="small text-nowrap"><%= c.upload_mbps != null ? c.upload_mbps + ' Mbps' : '-' %></td>
                 <td class="small text-secondary text-truncate" style="max-width: 250px;" title="<%= c.error_message || '' %>"><%= c.error_message || '' %></td>
               </tr>
             <% }); %>

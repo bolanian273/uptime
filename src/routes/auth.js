@@ -1,6 +1,7 @@
 'use strict';
 
 const express = require('express');
+// const logger = require('../logger');
 const { startLogin, complete2fa, logout, safeReturnTo, pendingNeeds2fa } = require('../auth');
 
 const router = express.Router();
@@ -13,6 +14,8 @@ router.get('/login', async (req, res) => {
     delete req.session.pendingUser;
   }
   res.render('login', { layout: false, title: 'Sign in' });
+  // const recentLogs = typeof logger.getRecentLogs === 'function' ? logger.getRecentLogs(40) : [];
+  // res.render('login', { layout: false, title: 'Sign in', recentLogs });
 });
 
 router.post('/login', async (req, res, next) => {

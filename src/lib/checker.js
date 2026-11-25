@@ -10,6 +10,7 @@ const pingProbe = require('./ping');
 const dnsProbe = require('./dnscheck');
 const whois = require('./whois');
 const logger = require('../logger');
+const speedtestProbe = require('./speedtest');
 
 const gunzipAsync = promisify(zlib.gunzip);
 const inflateAsync = promisify(zlib.inflate);
@@ -300,6 +301,52 @@ async function runDnsCheck(site) {
   };
 }
 
+async function runSpeedtestCheck(site) {
+  const log = logger.child({ siteId: site.id, siteName: site.name, monitorType: 'speedtest' });
+  const timeoutMs = Math.max(15000, site.timeout_ms || 60000);
+  const res = await speedtestProbe.runOoklaSpeedtest({
+    timeoutMs,
+    serverId: site.speedtest_server_id || null,
+  });
+
+  log.trace(
+    { ok: res.ok, pingMs: res.pingMs, downloadMbps: res.downloadMbps, uploadMbps: res.uploadMbps },
+    'speedtest.check_done'
+  );
+
+  if (!res.ok) {
+    return {
+      isUp: 0,
+      statusCode: null,
+      responseTimeMs: res.pingMs != null ? Math.round(res.pingMs) : null,
+      errorMessage: res.errorMessage,
+      challenged: false,
+      downloadMbps: null,
+      uploadMbps: null,
+    };
+  }
+
+  const minDown = Number(site.min_download_mbps || 0);
+  const minUp = Number(site.min_upload_mbps || 0);
+  const errors = [];
+  if (minDown > 0 && res.downloadMbps < minDown) {
+    errors.push(`download ${res.downloadMbps} Mbps < ${minDown} Mbps`);
+  }
+  if (minUp > 0 && res.uploadMbps < minUp) {
+    errors.push(`upload ${res.uploadMbps} Mbps < ${minUp} Mbps`);
+  }
+
+  return {
+    isUp: errors.length ? 0 : 1,
+    statusCode: null,
+    responseTimeMs: res.pingMs != null ? Math.round(res.pingMs) : null,
+    errorMessage: errors.length ? `speedtest threshold failed: ${errors.join(', ')}` : null,
+    challenged: false,
+    downloadMbps: res.downloadMbps,
+    uploadMbps: res.uploadMbps,
+  };
+}
+
 // Domain expiry monitor (WHOIS / RDAP).
 // State semantics (deliberately different from typical probes):
 //   - lookup fails / unreachable     → isUp: null (inconclusive, not 'down')
@@ -391,6 +438,7 @@ async function runSingleProbe(site) {
   if (site.monitor_type === 'ping') return runPingCheck(site);
   if (site.monitor_type === 'dns') return runDnsCheck(site);
   if (site.monitor_type === 'domain') return runDomainCheck(site);
+  if (site.monitor_type === 'speedtest') return runSpeedtestCheck(site);
   return runActiveProbe(site);
 }
 

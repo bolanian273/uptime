@@ -46,6 +46,17 @@
           </div>
         </div>
       </form>
+      
+      <!-- <% var logsList = (typeof recentLogs !== 'undefined' && Array.isArray(recentLogs)) ? recentLogs : []; %>
+      <div class="card card-sm mt-3">
+        <div class="card-header py-2 d-flex align-items-center justify-content-between">
+          <span class="card-title small mb-0"><i class="ti ti-terminal-2 me-1"></i> Recent Logs</span>
+          <span class="badge bg-secondary-lt"><%= logsList.length %> lines</span>
+        </div>
+        <div class="card-body p-2">
+          <pre class="m-0 small font-monospace text-secondary" style="max-height: 220px; overflow-y: auto; white-space: pre-wrap; word-break: break-word;"><%= logsList.length ? logsList.join('\n') : 'No log entries available yet.' %></pre>
+        </div>
+      </div>
     </div>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/notyf@3.10.0/notyf.min.js"></script>
@@ -54,7 +65,8 @@
       success: (typeof flash !== 'undefined' && flash.success) || [],
       error:   (typeof flash !== 'undefined' && flash.error)   || [],
       warning: (typeof flash !== 'undefined' && flash.warning) || [],
-    }).replace(/</g, '\\u003c').replace(/-->/g, '--\\u003e') %>;
+    }).replace(/</g, '\\u003c').replace(/-->/g, '--\\u003e') %>; -->
+    
   </script>
   <script src="/static/js/notyf-init.js?v=<%= typeof assetV !== 'undefined' ? assetV : Date.now() %>"></script>
 </body>

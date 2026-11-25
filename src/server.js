@@ -55,7 +55,6 @@ async function main() {
     etag: true,
     lastModified: true,
   }));
-  app.get('/favicon.ico', (req, res) => res.redirect(302, '/branding/favicon'));
 
   // Unauthenticated liveness probe for container healthchecks / load balancers.
   // Intentionally cheap — no DB query, no template rendering.
@@ -64,34 +63,8 @@ async function main() {
     res.json({ ok: true, ts: Date.now() });
   });
 
-  const assetVersion = config.appDebug ? Date.now().toString(36) : crypto.randomUUID().slice(0, 8);
-
-  const brandingLib = require('./lib/branding');
-
-  // Public-safe locals available to every route (including unauthenticated
-  // ones like /status, /branding, /ping). Must run before any router that
-  // renders templates.
-  app.use(async (req, res, next) => {
-    res.locals.theme = req.cookies?.theme === 'light' ? 'light' : 'dark';
-    res.locals.publicBaseUrl = config.publicBaseUrl;
-    res.locals.appDebug = config.appDebug;
-    res.locals.currentPath = req.path;
-    res.locals.assetV = config.appDebug ? Date.now().toString(36) : assetVersion;
-    try {
-      res.locals.branding = await brandingLib.get();
-    } catch (err) {
-      // Never fail a request because branding load blipped — fall back to env.
-      res.locals.branding = { ...config.branding, logoVersion: 0, faviconVersion: 0, hasCustomLogo: false, hasCustomFavicon: false };
-    }
-    next();
-  });
-
-  app.use(require('./routes/branding'));
-  app.use(require('./routes/ping'));
-  app.use(require('./routes/status'));
-  app.use(require('./routes/badge'));
-  app.use(require('./routes/api'));
-
+  // Load session & flash before any protected routes or template locals so
+  // /status, /status.json, /status.rss, /badge, /branding, etc. require login.
   app.use(sessionMiddleware());
   app.use(flash());
 
@@ -114,20 +87,38 @@ async function main() {
     next();
   });
 
-  // Auth-aware locals — only meaningful once session + flash are loaded.
-  app.use((req, res, next) => {
+  const assetVersion = config.appDebug ? Date.now().toString(36) : crypto.randomUUID().slice(0, 8);
+  const brandingLib = require('./lib/branding');
+
+  app.use(async (req, res, next) => {
+    res.locals.theme = req.cookies?.theme === 'light' ? 'light' : 'dark';
+    res.locals.publicBaseUrl = config.publicBaseUrl;
+    res.locals.appDebug = config.appDebug;
+    res.locals.currentPath = req.path;
+    res.locals.assetV = config.appDebug ? Date.now().toString(36) : assetVersion;
     res.locals.user = req.session?.user || null;
     res.locals.flash = {
       success: req.flash('success'),
       error: req.flash('error'),
       warning: req.flash('warning'),
     };
+    try {
+      res.locals.branding = await brandingLib.get();
+    } catch (err) {
+      res.locals.branding = { ...config.branding, logoVersion: 0, faviconVersion: 0, hasCustomLogo: false, hasCustomFavicon: false };
+    }
     next();
   });
 
+  // Login / logout / 2FA routes must remain accessible before requireAuth.
   app.use('/', require('./routes/auth'));
 
-  app.use(requireAuth);
+  // Passive heartbeat /ping/* callbacks need to remain reachable by external
+  // jobs/monitors without a browser session; everything else requires login.
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/ping/') || req.path.startsWith('/branding/') ) return next();
+    return requireAuth(req, res, next);
+  });
 
   // Force users with must_change_password=1 onto /settings/account before
   // they can navigate anywhere else. Logout and the account page are exempt.
@@ -142,6 +133,12 @@ async function main() {
     req.flash('warning', 'Please choose a new password before continuing.');
     res.redirect('/settings/account');
   });
+
+  app.use(require('./routes/branding'));
+  app.use(require('./routes/ping'));
+  app.use(require('./routes/status'));
+  app.use(require('./routes/badge'));
+  app.use(require('./routes/api'));
 
   app.use('/', require('./routes/channels'));
   app.use('/', require('./routes/settings'));

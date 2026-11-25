@@ -110,10 +110,7 @@ function sessionMiddleware() {
 function safeReturnTo(raw) {
   if (typeof raw !== 'string' || !raw) return '/';
   if (!/^\/[^/\\]/.test(raw)) return '/';
-  // /api/* paths return JSON, not HTML, and are unsuitable as a post-login
-  // destination. The dashboard polls /api/sites every 5s, so stale ones used
-  // to end up here when a session expired between ticks.
-  if (/^\/api(\/|$|\?)/.test(raw)) return '/';
+  if (/^\/(api|branding|badge)(\/|$|\?)/.test(raw)) return '/';
   return raw;
 }
 

@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const Database = require('better-sqlite3');
+const { DatabaseSync } = require('node:sqlite');
 const config = require('../config');
 const logger = require('../logger');
 
@@ -11,26 +11,23 @@ const DIALECT = 'sqlite';
 const dbPath = config.db.sqlitePath;
 fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
-const db = new Database(dbPath, { fileMustExist: false });
-db.pragma('foreign_keys = ON');
-db.pragma('journal_mode = WAL');
-db.pragma('synchronous = NORMAL');
-db.pragma('busy_timeout = 5000');
+const db = new DatabaseSync(dbPath);
+db.exec('PRAGMA foreign_keys = ON');
+db.exec('PRAGMA journal_mode = WAL');
+db.exec('PRAGMA synchronous = NORMAL');
+db.exec('PRAGMA busy_timeout = 5000');
 
 logger.info({ driver: DIALECT, path: dbPath }, 'db.opened');
 
 function isReadStatement(sql) {
-  // All alternatives anchored to the start — an unanchored `\s*PRAGMA` would
-  // match anywhere in the statement (e.g. inside a string literal) and
-  // misroute a write through .all().
   return /^\s*(?:(?:WITH\b[\s\S]*?\s+)?SELECT\b|PRAGMA\b|EXPLAIN\b)/i.test(sql);
 }
 
 async function query(sql, params = []) {
   const start = Date.now();
   try {
+    const stmt = db.prepare(sql);
     if (isReadStatement(sql)) {
-      const stmt = db.prepare(sql);
       const rows = stmt.all(...params);
       if (config.appDebug) {
         logger.trace(
@@ -40,15 +37,16 @@ async function query(sql, params = []) {
       }
       return rows;
     }
-    const stmt = db.prepare(sql);
     const info = stmt.run(...params);
+    const changes = Number(info.changes ?? 0);
+    const insertId = info.lastInsertRowid != null ? Number(info.lastInsertRowid) : 0;
     const result = [];
-    result.affectedRows = info.changes;
-    result.insertId = Number(info.lastInsertRowid);
-    result.changes = info.changes;
+    result.affectedRows = changes;
+    result.insertId = insertId;
+    result.changes = changes;
     if (config.appDebug) {
       logger.trace(
-        { sql: sql.replace(/\s+/g, ' ').slice(0, 240), durationMs: Date.now() - start, rowsAffected: info.changes, insertId: result.insertId },
+        { sql: sql.replace(/\s+/g, ' ').slice(0, 240), durationMs: Date.now() - start, rowsAffected: changes, insertId },
         'db.query'
       );
     }
